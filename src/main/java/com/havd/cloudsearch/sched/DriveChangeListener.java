@@ -10,17 +10,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.drive.Drive;
 import com.havd.cloudsearch.dao.model.Channel;
 import com.havd.cloudsearch.dao.repo.ChannelRepository;
-import com.havd.cloudsearch.eh.DriveSearchException;
 import com.havd.cloudsearch.eh.NoChannelException;
+import com.havd.cloudsearch.eh.NoProjectException;
 import com.havd.cloudsearch.service.api.ElasticService;
-import com.havd.cloudsearch.service.impl.ChannelServiceImpl;
-import com.havd.cloudsearch.service.impl.FileDetailsMessage;
+import com.havd.cloudsearch.service.impl.model.FileDetailsMessage;
 import com.havd.cloudsearch.util.DriveUtils;
+import org.apache.tika.exception.TikaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.xml.sax.SAXException;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -64,13 +65,12 @@ public class DriveChangeListener {
                 continue;
             }
             try {
-                elasticService.upload(localFile);
-            } catch (IOException e) {
-                logger.error("error indexing " + fileDetails.getChannelCanName() );
+                elasticService.upload(localFile, fileDetails);
+            } catch (IOException | NoChannelException | NoProjectException | TikaException | SAXException e) {
+                logger.error("error indexing " + fileDetails.getChannelCanName(), e );
             }
             sqs.deleteMessage(url, msg.getReceiptHandle());
         }
-        System.out.println("polling");
     }
 
     private String downloadFile(String channelCanName, FileDetailsMessage fileDetails) throws NoChannelException, IOException {
@@ -82,9 +82,10 @@ public class DriveChangeListener {
 
         Drive.Files f = drive.files();
         Drive.Files.Get get = f.get(fileDetails.getFileId());
-        FileOutputStream fileOutputStream = new FileOutputStream("/tmp/havd/" + fileDetails.getFileId());
+        FileOutputStream fileOutputStream = new FileOutputStream("/tmp/havd/" + fileDetails.getFileName());
 
-        get.executeAndDownloadTo(fileOutputStream);
-        return "/tmp/havd/" + fileDetails.getFileId();
+        //get.executeAndDownloadTo(fileOutputStream);
+        get.executeMediaAndDownloadTo(fileOutputStream);
+        return "/tmp/havd/" + fileDetails.getFileName();
     }
 }

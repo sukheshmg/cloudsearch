@@ -1,4 +1,4 @@
-package com.havd.cloudsearch.service.impl;
+package com.havd.cloudsearch.service.impl.model;
 
 import lombok.Data;
 
@@ -6,4 +6,6 @@ import lombok.Data;
 public class FileDetailsMessage {
     private String fileId;
     private String channelCanName;
+    private String fileName;
+    private String extension;
 }
