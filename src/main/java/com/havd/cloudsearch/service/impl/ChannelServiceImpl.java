@@ -51,6 +51,7 @@ public class ChannelServiceImpl implements ChannelService {
     public void addProjects(String channelCanName, AddProjectRequest request) throws NoChannelException, NoProjectException {
         Optional<Channel> channelOp = channelRepository.findById(channelCanName);
         if(channelOp.isEmpty()) {
+            logger.error("channel " + channelCanName + " doesn't exist");
             throw new NoChannelException("channel " + channelCanName + " doesn't exist");
         }
 
@@ -61,6 +62,7 @@ public class ChannelServiceImpl implements ChannelService {
         for(String proj : request.getProjects()) {
             Optional<Project> projectOp = projectRepository.findById(proj);
             if(projectOp.isEmpty()) {
+                logger.error("no project defined for " + proj);
                 throw new NoProjectException(proj);
             }
             projects.add(projectOp.get());
@@ -68,10 +70,13 @@ public class ChannelServiceImpl implements ChannelService {
 
         channel.setProjects(projects);
         channelRepository.save(channel);
+        logger.info("projects " + request.getProjects() + " added tp channel " + channelCanName);
     }
 
     @Override
     public void startChannel(String channelCanName) throws NoChannelException, DriveException, DriveSearchException {
+        logger.info("starting channel " + channelCanName);
+        logger.info("listing all files for " + channelCanName);
         List<FileDetailsMessage> files = driveService.listAlFiles(channelCanName);
         for(FileDetailsMessage msg : files) {
             ObjectMapper mapper = new ObjectMapper();

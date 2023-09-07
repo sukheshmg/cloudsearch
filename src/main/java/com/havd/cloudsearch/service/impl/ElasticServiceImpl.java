@@ -12,6 +12,8 @@ import com.havd.cloudsearch.eh.NoProjectException;
 import com.havd.cloudsearch.service.api.ElasticService;
 import com.havd.cloudsearch.service.impl.model.ESDocument;
 import com.havd.cloudsearch.service.impl.model.FileDetailsMessage;
+import com.havd.cloudsearch.ws.model.Error;
+import com.havd.cloudsearch.ws.model.Result;
 import com.havd.cloudsearch.ws.model.response.SearchResult;
 import com.havd.cloudsearch.ws.model.response.SearchResults;
 import org.apache.commons.lang.StringUtils;
@@ -30,6 +32,8 @@ import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
 import org.apache.tika.sax.BodyContentHandler;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
@@ -71,29 +75,38 @@ public class ElasticServiceImpl implements ElasticService {
 
     @Override
     public void upload(String localFile, FileDetailsMessage fileDetailsMessage) throws IOException, NoChannelException, NoProjectException, TikaException, SAXException {
+        logger.info("indexing " + fileDetailsMessage.getFileName() + " for channel " + fileDetailsMessage.getChannelCanName());
         Optional<Channel> channelOp = channelRepository.findById(fileDetailsMessage.getChannelCanName());
         if(channelOp.isEmpty()) {
+            logger.error("channel " + fileDetailsMessage.getChannelCanName() + " doesn't exist");
             throw new NoChannelException(fileDetailsMessage.getChannelCanName());
         }
 
         Set<Project> projects = channelOp.get().getProjects();
         if(projects == null || projects.isEmpty()) {
+            logger.error("no project defined for channel " + fileDetailsMessage.getChannelCanName());
             throw new NoProjectException(fileDetailsMessage.getChannelCanName());
         }
 
         for(Project project : projects) {
+            logger.info("indexing " + fileDetailsMessage.getFileName() + " into project " + project.getCanonicalName());
             upload(localFile, fileDetailsMessage, project);
+            logger.info("indexed " + fileDetailsMessage.getFileName() + " into project " + project.getCanonicalName());
         }
-
     }
 
     private void upload(String localFile, FileDetailsMessage fileDetailsMessage, Project project) throws IOException, TikaException, SAXException {
-        String index = project.getCanonicalName();
+        FileInputStream fileInputStream = new FileInputStream(new File(localFile));
+        String content = parseAndGet(fileInputStream);
+        String toWrite = getJsonForES(content, fileDetailsMessage);
 
         RestHighLevelClient client = getESClient();
+        IndexRequest request = new IndexRequest(project.getCanonicalName(), DEFAULT_TYPE, fileDetailsMessage.getFileId())
+                .source(toWrite, XContentType.JSON);
+        IndexResponse response = client.index(request, RequestOptions.DEFAULT);
+    }
 
-        FileInputStream fileInputStream = new FileInputStream(new File(localFile));
-
+    private String parseAndGet(FileInputStream fileInputStream) throws TikaException, IOException, SAXException {
         Parser parser = new AutoDetectParser();
         ContentHandler contentHandler = new BodyContentHandler();
         Metadata metadata = new Metadata();
@@ -103,26 +116,30 @@ public class ElasticServiceImpl implements ElasticService {
         String content = contentHandler.toString().trim();
         content = content.replaceAll("(\\r|\\n)", "");
 
+        return content;
+    }
+
+    private String getJsonForES(String content, FileDetailsMessage fileDetailsMessage) throws JsonProcessingException {
         ESDocument doc = new ESDocument();
         doc.setContent(content);
         doc.setTitle(fileDetailsMessage.getFileName());
 
         ObjectMapper mapper = new ObjectMapper();
         String toWrite = mapper.writeValueAsString(doc);
-
-        IndexRequest request = new IndexRequest(index, DEFAULT_TYPE, "1")
-                .source(toWrite, XContentType.JSON);
-        IndexResponse response = client.index(request, RequestOptions.DEFAULT);
+        return toWrite;
     }
 
     @Override
     public SearchResults search(String q, String group) throws DriveSearchException, IOException {
         String groupCanName = StringUtils.isEmpty(group)?DEFAULT_GROUP:group;
+
+        logger.info("searching for " + q + " in index " + groupCanName);
+
         RestHighLevelClient client = getESClient();
 
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        searchSourceBuilder.query(QueryBuilders.matchQuery("content", q).fuzziness(Fuzziness.TWO));
+        searchSourceBuilder.query(QueryBuilders.matchQuery("content", q).fuzziness(Fuzziness.ZERO));
         searchRequest.source(searchSourceBuilder);
         searchRequest.indices(groupCanName);
 
@@ -132,7 +149,7 @@ public class ElasticServiceImpl implements ElasticService {
 
         if(status.getStatus() != 200) {
             logger.error("invalid status code from search " + status.getStatus());
-            throw new DriveSearchException("couldn't search for " + q + " in " + group);
+            throw new DriveSearchException("couldn't search for " + q + " in " + group + ". error=" + status.getStatus());
         }
 
         SearchHits hits = searchResponse.getHits();
@@ -141,26 +158,21 @@ public class ElasticServiceImpl implements ElasticService {
         SearchResults searchResults = new SearchResults();
 
         if(searchHits == null || searchHits.length == 0) {
+            logger.info("no results found for " + q + " in index " + groupCanName);
             return searchResults;
         }
 
         List<SearchResult> results = new LinkedList<>();
 
         for(SearchHit h : searchHits) {
-            System.out.println(h.getSourceAsString());
             Map<String ,Object> map = h.getSourceAsMap();
 
             SearchResult searchResult = new SearchResult();
             searchResult.setFile((String) map.get("title"));
-
             results.add(searchResult);
-
-            System.out.println("title: " + map.get("title"));
         }
 
         searchResults.setSearchResults(results);
-        System.out.println(searchResponse.getInternalResponse().toString());
-
         return searchResults;
     }
 

@@ -10,6 +10,8 @@ import com.havd.cloudsearch.eh.NoChannelException;
 import com.havd.cloudsearch.service.api.DriveService;
 import com.havd.cloudsearch.service.impl.model.FileDetailsMessage;
 import com.havd.cloudsearch.util.DriveUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +22,7 @@ import java.util.Optional;
 
 @Service
 public class DriveServiceImpl implements DriveService {
+    private static final Logger logger = LoggerFactory.getLogger(DriveServiceImpl.class);
 
     @Autowired
     private ChannelRepository channelRepository;
@@ -27,6 +30,7 @@ public class DriveServiceImpl implements DriveService {
     public List<FileDetailsMessage> listAlFiles(String channelCanName) throws DriveException, NoChannelException {
         Optional<Channel> channelOp = channelRepository.findById(channelCanName);
         if(channelOp.isEmpty()) {
+            logger.error("channel " + channelCanName + " not found");
             throw new NoChannelException(channelCanName);
         }
 
@@ -42,13 +46,13 @@ public class DriveServiceImpl implements DriveService {
             try {
                 result = drive.files().list().
                         setQ("mimeType='application/pdf' or mimeType='application/msword' or mimeType='text/plain' or mimeType='text/csv'").
-                        //setQ("mimeType='text/plain'").
                         setSpaces("drive").
                         setFields("*").
                         setPageToken(pageToken).
                         execute();
             } catch (IOException e) {
-                throw new DriveException("couldn't list files. " + e.getLocalizedMessage());
+                logger.error("unable to list files for channel " + channelCanName, e);
+                throw new DriveException("couldn't list files for channel " + channelCanName + ". error=" + e.getLocalizedMessage());
             }
             for (File file : result.getFiles()) {
                 FileDetailsMessage msg = new FileDetailsMessage();

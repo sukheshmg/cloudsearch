@@ -23,6 +23,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.xml.sax.SAXException;
 
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
@@ -51,41 +52,77 @@ public class DriveChangeListener {
             try {
                 fileDetails = mapper.readValue(msg.getBody(), t);
             } catch (JsonProcessingException e) {
+                /**
+                 * if we can't parse message now, we won't be able to parse it later as well.
+                 * Better ignore and proceed
+                 */
                 logger.error("error parsing message from queue", e);
+                sqs.deleteMessage(url, msg.getReceiptHandle());
+                continue;
             }
-            System.out.println(fileDetails);
+
+            logger.info("received an update for file " + fileDetails.getFileName() + ". processing...");
             String localFile = null;
             try {
                 localFile = downloadFile(fileDetails.getChannelCanName(), fileDetails);
             } catch (NoChannelException e) {
+                /**
+                 * recoverable error. not deleting message
+                 */
                 logger.error("channel " + fileDetails.getChannelCanName() + " doesn't exist");
                 continue;
+            } catch (FileNotFoundException e) {
+                /**
+                 * irrecoverable error. ignoring as the file has already been deleted
+                 */
+                sqs.deleteMessage(url, msg.getReceiptHandle());
+                continue;
             } catch (IOException e) {
+                /**
+                 * recoverable error
+                 */
                 logger.error("I/O exception while reading " + fileDetails.getFileId());
                 continue;
             }
             try {
                 elasticService.upload(localFile, fileDetails);
-            } catch (IOException | NoChannelException | NoProjectException | TikaException | SAXException e) {
-                logger.error("error indexing " + fileDetails.getChannelCanName(), e );
+            } catch (TikaException | SAXException e) {
+                /**
+                 * irrecoverable error
+                 */
+                logger.error("error parsing " + fileDetails.getFileName(), e);
+                sqs.deleteMessage(url, msg.getReceiptHandle());
+            } catch (IOException | NoChannelException | NoProjectException e) {
+                /**
+                 * recoverable error
+                 */
+                logger.error("error parsing " + fileDetails.getFileName(), e);
+                continue;
             }
             sqs.deleteMessage(url, msg.getReceiptHandle());
         }
     }
 
     private String downloadFile(String channelCanName, FileDetailsMessage fileDetails) throws NoChannelException, IOException {
+        logger.info("downloading file " + fileDetails.getFileName());
         Optional<Channel> channelOp = channelRepository.findById(channelCanName);
         if(channelOp.isEmpty()) {
+            logger.error("channel " + channelCanName + " doesn't exist");
             throw new NoChannelException(channelCanName);
         }
         Drive drive = DriveUtils.getDrive(channelOp.get().getAccessToken());
 
         Drive.Files f = drive.files();
         Drive.Files.Get get = f.get(fileDetails.getFileId());
-        FileOutputStream fileOutputStream = new FileOutputStream("/tmp/havd/" + fileDetails.getFileName());
+        if(get == null || get.isEmpty()) {
+            logger.error("file " + fileDetails.getFileName() + " either empty or doesn't exist");
+            throw new FileNotFoundException("file " + fileDetails.getFileName() + " either empty or doesn't exist");
+        }
 
-        //get.executeAndDownloadTo(fileOutputStream);
+        FileOutputStream fileOutputStream = new FileOutputStream("/tmp/havd/" + fileDetails.getFileName());
         get.executeMediaAndDownloadTo(fileOutputStream);
+
+        logger.info("wrote to " + "/tmp/havd/" + fileDetails.getFileName());
         return "/tmp/havd/" + fileDetails.getFileName();
     }
 }
