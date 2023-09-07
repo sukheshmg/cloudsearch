@@ -123,6 +123,7 @@ public class ElasticServiceImpl implements ElasticService {
         ESDocument doc = new ESDocument();
         doc.setContent(content);
         doc.setTitle(fileDetailsMessage.getFileName());
+        doc.setLink(fileDetailsMessage.getLink());
 
         ObjectMapper mapper = new ObjectMapper();
         String toWrite = mapper.writeValueAsString(doc);
@@ -168,11 +169,14 @@ public class ElasticServiceImpl implements ElasticService {
             Map<String ,Object> map = h.getSourceAsMap();
 
             SearchResult searchResult = new SearchResult();
-            searchResult.setFile((String) map.get("title"));
+            searchResult.setFile((String) map.get("link"));
             results.add(searchResult);
         }
 
         searchResults.setSearchResults(results);
+
+        //client.indices().delete(new DeleteIndexRequest().indices("proj1"), RequestOptions.DEFAULT);
+
         return searchResults;
     }
 

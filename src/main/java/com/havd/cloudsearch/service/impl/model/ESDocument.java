@@ -6,4 +6,5 @@ import lombok.Data;
 public class ESDocument {
     private String title;
     private String content;
+    private String link;
 }

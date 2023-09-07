@@ -60,6 +60,7 @@ public class DriveServiceImpl implements DriveService {
                 msg.setChannelCanName(channelCanName);
                 msg.setFileName(file.getName());
                 msg.setExtension(file.getFileExtension());
+                msg.setLink(file.getWebViewLink());
 
                 resp.add(msg);
             }

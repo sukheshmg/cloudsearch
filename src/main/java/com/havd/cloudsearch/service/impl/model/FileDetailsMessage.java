@@ -8,4 +8,5 @@ public class FileDetailsMessage {
     private String channelCanName;
     private String fileName;
     private String extension;
+    private String link;
 }
