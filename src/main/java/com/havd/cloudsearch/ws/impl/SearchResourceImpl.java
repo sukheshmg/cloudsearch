@@ -19,7 +19,7 @@ public class SearchResourceImpl implements SearchResource {
     private ElasticService elasticService;
     @Override
     @RequestMapping("/search")
-    public SearchResults search(@RequestParam(value = "q", required = true) String query, @RequestParam(value = "group", required = false) String groupId) throws DriveSearchException, IOException {
+    public SearchResults search(@RequestParam(value = "q", required = true) String query, @RequestParam(value = "project", required = false) String groupId) throws DriveSearchException, IOException {
         return elasticService.search(query, groupId);
     }
 }

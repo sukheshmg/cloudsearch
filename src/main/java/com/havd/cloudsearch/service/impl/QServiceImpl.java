@@ -7,6 +7,7 @@ import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.SendMessageRequest;
 import com.havd.cloudsearch.service.api.QService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -14,7 +15,8 @@ import java.util.UUID;
 @Service
 public class QServiceImpl implements QService {
     private final AmazonSQS sqs = AmazonSQSClientBuilder.defaultClient();
-    private static final String url = "https://sqs.us-west-2.amazonaws.com/361430879141/havQ.fifo";
+    @Value("${sqsUrl}")
+    private String url;
 
     @Override
     public void sendMessage(String msg) {

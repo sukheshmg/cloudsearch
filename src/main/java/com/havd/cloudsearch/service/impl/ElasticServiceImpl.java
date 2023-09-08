@@ -52,6 +52,8 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
@@ -66,9 +68,18 @@ import java.util.*;
 @Service
 public class ElasticServiceImpl implements ElasticService {
     private static final Logger logger = LoggerFactory.getLogger(ElasticServiceImpl.class);
-    private static final String url = "https://search-hevosearch-2px2djcntkmz5lqkwmsfd7bugi.us-west-2.es.amazonaws.com/";
+
     private static final String DEFAULT_GROUP = "proj1";
     private static final String DEFAULT_TYPE = "docs";
+
+    @Value("${esUser}")
+    private String esUser;
+
+    @Value("${esPwd}")
+    private String esPwd;
+
+    @Value("${esUrl}")
+    private String url;
 
     @Autowired
     private ChannelRepository channelRepository;
@@ -157,25 +168,24 @@ public class ElasticServiceImpl implements ElasticService {
         SearchHit[] searchHits = hits.getHits();
 
         SearchResults searchResults = new SearchResults();
+        List<SearchResult> results = new LinkedList<>();
 
         if(searchHits == null || searchHits.length == 0) {
             logger.info("no results found for " + q + " in index " + groupCanName);
+            searchResults.setMessage("no results found");
+            searchResults.setSearchResults(results);
             return searchResults;
         }
-
-        List<SearchResult> results = new LinkedList<>();
 
         for(SearchHit h : searchHits) {
             Map<String ,Object> map = h.getSourceAsMap();
 
             SearchResult searchResult = new SearchResult();
-            searchResult.setFile((String) map.get("link"));
+            searchResult.setFile((String) (map.get("link")!=null?map.get("link"):map.get("title")));
             results.add(searchResult);
         }
 
         searchResults.setSearchResults(results);
-
-        //client.indices().delete(new DeleteIndexRequest().indices("proj1"), RequestOptions.DEFAULT);
 
         return searchResults;
     }
@@ -211,7 +221,7 @@ public class ElasticServiceImpl implements ElasticService {
     private RestHighLevelClient getESClient() {
         CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(AuthScope.ANY,
-                new UsernamePasswordCredentials("admin", "Simple@123"));
+                new UsernamePasswordCredentials(this.esUser, this.esPwd));
 
         RestClientBuilder builder = RestClient.builder(new HttpHost("search-hevosearch-2px2djcntkmz5lqkwmsfd7bugi.us-west-2.es.amazonaws.com", 443, "https"))
                 .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
