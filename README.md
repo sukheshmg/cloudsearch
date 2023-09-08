@@ -1,6 +1,9 @@
 # CloudSearch
 Platform to aggregate multiple cloud document stores and perform fast searches on them
 
+For Architecture Details, check here
+https://docs.google.com/document/d/1S3Or46YBN5vmh5twAFsmhrHvNwaAG-w3nnZ_AfgPGYM/edit?usp=sharing
+
 ## Main Concepts
 
 ### Project
