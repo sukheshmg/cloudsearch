@@ -10,3 +10,14 @@ Typical usage could be
 - A single user having multiple Google Drive accounts
 - A single user having Google Drive, DropBox or other OAuth2 Compatible doc storage accounts
 - An organization with multiple doc storage accounts
+
+### Channel
+A Channel represents a single Doc Storage account.
+Channel stores the user's OAuth2 tokens. Orchestrating the OAuth flow including procuring user consent is outside the scope of this platform.
+
+## Usage
+Typical flow would be this
+- create a Project
+- create one more channels
+- add channels to project
+- perform search and relax!
