@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class FileDetailsMessage {
+    private String type;
     private String fileId;
     private String channelCanName;
     private String fileName;

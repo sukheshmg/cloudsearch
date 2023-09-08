@@ -8,8 +8,10 @@ import com.havd.cloudsearch.ws.model.Response;
 import com.havd.cloudsearch.ws.model.req.AddProjectRequest;
 import com.havd.cloudsearch.ws.model.req.ChannelCreateRequest;
 
+import java.io.IOException;
+
 public interface ChannelResource {
     Response createChannel(ChannelCreateRequest request);
     Response addProjects(String channelCanName, AddProjectRequest request) throws NoChannelException, NoProjectException;
-    Response startChannel(String channelCanName) throws NoChannelException, DriveException, DriveSearchException;
+    Response startChannel(String channelCanName) throws NoChannelException, DriveException, DriveSearchException, IOException;
 }

@@ -46,6 +46,10 @@ public class DriveChangeListener {
         ReceiveMessageRequest req = new ReceiveMessageRequest().withQueueUrl(url).withMaxNumberOfMessages(10);
         List<Message> messages = sqs.receiveMessage(req).getMessages();
         for(Message msg : messages) {
+//            if(true) {
+//                sqs.deleteMessage(url, msg.getReceiptHandle());
+//                continue;
+//            }
             ObjectMapper mapper = new ObjectMapper();
             TypeReference<FileDetailsMessage> t = new TypeReference<FileDetailsMessage>() {};
             FileDetailsMessage fileDetails = null;
@@ -61,7 +65,25 @@ public class DriveChangeListener {
                 continue;
             }
 
-            logger.info("received an update for file " + fileDetails.getFileName() + ". processing...");
+            if(!fileDetails.getType().equals("firstTimeRead")) {
+                String split[] = fileDetails.getChannelCanName().split("channel");
+                fileDetails.setChannelCanName(split[1]);
+                fileDetails.setFileId(split[0]);
+                fileDetails.setFileName(split[0]);
+            }
+
+            if(fileDetails.getType() != null && (fileDetails.getType().equals("trash") || fileDetails.getType().equals("remove"))) {
+                logger.info("file " + fileDetails.getFileId() + " deleted");
+                try {
+                    elasticService.remove(fileDetails);
+                } catch (NoChannelException  | NoProjectException | IOException e) {
+                    logger.error("unable to remove " + fileDetails.getFileName() + " from index", e);
+                }
+                sqs.deleteMessage(url, msg.getReceiptHandle());
+                continue;
+            }
+
+            logger.info("received an update for file " + fileDetails.getFileName() + " in channel " + fileDetails.getChannelCanName() + ". processing...");
             String localFile = null;
             try {
                 localFile = downloadFile(fileDetails.getChannelCanName(), fileDetails);
@@ -70,6 +92,7 @@ public class DriveChangeListener {
                  * recoverable error. not deleting message
                  */
                 logger.error("channel " + fileDetails.getChannelCanName() + " doesn't exist");
+                sqs.deleteMessage(url, msg.getReceiptHandle());
                 continue;
             } catch (FileNotFoundException e) {
                 /**
@@ -81,7 +104,12 @@ public class DriveChangeListener {
                 /**
                  * recoverable error
                  */
-                logger.error("I/O exception while reading " + fileDetails.getFileId());
+                logger.error("I/O exception while reading " + fileDetails.getFileId(), e);
+                sqs.deleteMessage(url, msg.getReceiptHandle());
+                continue;
+            } catch (Throwable t1) {
+                logger.error("", t1);
+                sqs.deleteMessage(url, msg.getReceiptHandle());
                 continue;
             }
             try {

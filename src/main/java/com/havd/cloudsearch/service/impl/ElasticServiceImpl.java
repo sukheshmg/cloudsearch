@@ -180,6 +180,34 @@ public class ElasticServiceImpl implements ElasticService {
         return searchResults;
     }
 
+    @Override
+    public void remove(FileDetailsMessage fileDetailsMessage) throws NoChannelException, NoProjectException, IOException {
+        logger.info("removing " + fileDetailsMessage.getFileName() + " from channel " + fileDetailsMessage.getChannelCanName());
+        Optional<Channel> channelOp = channelRepository.findById(fileDetailsMessage.getChannelCanName());
+        if(channelOp.isEmpty()) {
+            logger.error("channel " + fileDetailsMessage.getChannelCanName() + " doesn't exist");
+            throw new NoChannelException(fileDetailsMessage.getChannelCanName());
+        }
+
+        Set<Project> projects = channelOp.get().getProjects();
+        if(projects == null || projects.isEmpty()) {
+            logger.error("no project defined for channel " + fileDetailsMessage.getChannelCanName());
+            throw new NoProjectException(fileDetailsMessage.getChannelCanName());
+        }
+
+        for(Project project : projects) {
+            logger.info("removing " + fileDetailsMessage.getFileName() + " from project " + project.getCanonicalName());
+            remove(fileDetailsMessage, project);
+            logger.info("removed " + fileDetailsMessage.getFileName() + " from project " + project.getCanonicalName());
+        }
+    }
+
+    private void remove(FileDetailsMessage fileDetailsMessage, Project project) throws IOException {
+        RestHighLevelClient client = getESClient();
+        DeleteRequest deleteRequest = new DeleteRequest(project.getCanonicalName(), DEFAULT_TYPE, fileDetailsMessage.getFileId());
+        client.delete(deleteRequest, RequestOptions.DEFAULT);
+    }
+
     private RestHighLevelClient getESClient() {
         CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(AuthScope.ANY,

@@ -3,11 +3,13 @@ package com.havd.cloudsearch.dao.model;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -25,4 +27,5 @@ public class Channel {
 
     @ManyToMany
     private Set<Project> projects;
+
 }

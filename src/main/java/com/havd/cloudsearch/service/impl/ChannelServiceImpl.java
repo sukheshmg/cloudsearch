@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -74,8 +75,9 @@ public class ChannelServiceImpl implements ChannelService {
     }
 
     @Override
-    public void startChannel(String channelCanName) throws NoChannelException, DriveException, DriveSearchException {
+    public void startChannel(String channelCanName) throws NoChannelException, DriveException, DriveSearchException, IOException {
         logger.info("starting channel " + channelCanName);
+
         logger.info("listing all files for " + channelCanName);
         List<FileDetailsMessage> files = driveService.listAlFiles(channelCanName);
         for(FileDetailsMessage msg : files) {
@@ -85,6 +87,7 @@ public class ChannelServiceImpl implements ChannelService {
             } catch (JsonProcessingException e) {
                 throw new DriveSearchException(e.getLocalizedMessage());
             }
+            driveService.listenForFileChanges(msg.getFileId(), msg.getChannelCanName());
         }
     }
 

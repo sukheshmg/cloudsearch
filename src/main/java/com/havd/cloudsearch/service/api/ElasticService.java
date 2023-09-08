@@ -13,4 +13,6 @@ import java.io.IOException;
 public interface ElasticService {
     void upload(String localFile, FileDetailsMessage fileDetailsMessage) throws IOException, NoChannelException, NoProjectException, TikaException, SAXException;
     SearchResults search(String q, String group) throws DriveSearchException, IOException;
+
+    void remove(FileDetailsMessage fileDetailsMessage) throws NoChannelException, NoProjectException, IOException;
 }
