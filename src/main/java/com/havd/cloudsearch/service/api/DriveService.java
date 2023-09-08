@@ -9,8 +9,5 @@ import java.util.List;
 
 public interface DriveService {
     List<FileDetailsMessage> listAlFiles(String channelCanName) throws DriveException, NoChannelException;
-    void listenToChanges(String channelCanName) throws IOException, NoChannelException;
-    String getPageToken(String channelCanName) throws NoChannelException, IOException;
-
     void listenForFileChanges(String fileId, String channelCanName) throws NoChannelException, IOException;
 }

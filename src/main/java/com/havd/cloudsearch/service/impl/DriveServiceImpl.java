@@ -74,47 +74,6 @@ public class DriveServiceImpl implements DriveService {
     }
 
     @Override
-    public void listenToChanges(String channelCanName) throws IOException, NoChannelException {
-        Optional<Channel> channelOp = channelRepository.findById(channelCanName);
-        if(channelOp.isEmpty()) {
-            logger.error("channel " + channelCanName + " not found");
-            throw new NoChannelException(channelCanName);
-        }
-
-        Drive drive = DriveUtils.getDrive(channelOp.get().getAccessToken());
-
-        String startPageToken = getPageToken(channelCanName);
-        //String startPageToken = channelOp.get().getPageToken();
-
-                com.google.api.services.drive.model.Channel driveChannel = new com.google.api.services.drive.model.Channel();
-        driveChannel.setAddress("https://ytuaoemx6d.execute-api.us-west-2.amazonaws.com/prod/drive");
-        driveChannel.setId(channelCanName);
-        driveChannel.setType("web_hook");
-
-        Drive.Changes.Watch watch = drive.changes().watch(startPageToken, driveChannel);
-        //Drive.Files.Watch watch1 = drive.files().watch();
-
-        watch.execute();
-    }
-
-    @Override
-    public String getPageToken(String channelCanName) throws NoChannelException, IOException {
-        Optional<Channel> channelOp = channelRepository.findById(channelCanName);
-        if(channelOp.isEmpty()) {
-            logger.error("channel " + channelCanName + " not found");
-            throw new NoChannelException(channelCanName);
-        }
-
-        Drive drive = DriveUtils.getDrive(channelOp.get().getAccessToken());
-
-        StartPageToken startPageToken;
-
-        startPageToken = drive.changes().getStartPageToken().execute();
-
-        return startPageToken.getStartPageToken();
-    }
-
-    @Override
     public void listenForFileChanges(String fileId, String channelCanName) throws NoChannelException, IOException {
         Optional<Channel> channelOp = channelRepository.findById(channelCanName);
         if(channelOp.isEmpty()) {

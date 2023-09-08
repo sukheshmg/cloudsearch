@@ -46,89 +46,77 @@ public class DriveChangeListener {
         ReceiveMessageRequest req = new ReceiveMessageRequest().withQueueUrl(url).withMaxNumberOfMessages(10);
         List<Message> messages = sqs.receiveMessage(req).getMessages();
         for(Message msg : messages) {
-//            if(true) {
-//                sqs.deleteMessage(url, msg.getReceiptHandle());
-//                continue;
-//            }
-            ObjectMapper mapper = new ObjectMapper();
-            TypeReference<FileDetailsMessage> t = new TypeReference<FileDetailsMessage>() {};
             FileDetailsMessage fileDetails = null;
             try {
-                fileDetails = mapper.readValue(msg.getBody(), t);
+                fileDetails = parseMessage(msg);
             } catch (JsonProcessingException e) {
-                /**
-                 * if we can't parse message now, we won't be able to parse it later as well.
-                 * Better ignore and proceed
-                 */
-                logger.error("error parsing message from queue", e);
                 sqs.deleteMessage(url, msg.getReceiptHandle());
                 continue;
             }
 
-            if(!fileDetails.getType().equals("firstTimeRead")) {
-                String split[] = fileDetails.getChannelCanName().split("channel");
-                fileDetails.setChannelCanName(split[1]);
-                fileDetails.setFileId(split[0]);
-                fileDetails.setFileName(split[0]);
-            }
-
-            if(fileDetails.getType() != null && (fileDetails.getType().equals("trash") || fileDetails.getType().equals("remove"))) {
-                logger.info("file " + fileDetails.getFileId() + " deleted");
-                try {
-                    elasticService.remove(fileDetails);
-                } catch (NoChannelException  | NoProjectException | IOException e) {
-                    logger.error("unable to remove " + fileDetails.getFileName() + " from index", e);
-                }
+            try {
+                handleMessage(fileDetails);
+            } catch (Exception e) {
                 sqs.deleteMessage(url, msg.getReceiptHandle());
                 continue;
             }
+            sqs.deleteMessage(url, msg.getReceiptHandle());
+        }
+    }
 
+    private void handleMessage(FileDetailsMessage fileDetails) throws NoChannelException, NoProjectException, IOException, TikaException, SAXException {
+        if(fileDetails.getType() != null && (fileDetails.getType().equals("trash") || fileDetails.getType().equals("remove"))) {
+            try {
+                elasticService.remove(fileDetails);
+            } catch (NoChannelException  | NoProjectException | IOException e) {
+                logger.error("unable to remove " + fileDetails.getFileName() + " from index", e);
+                throw e;
+            }
+        } else {
             logger.info("received an update for file " + fileDetails.getFileName() + " in channel " + fileDetails.getChannelCanName() + ". processing...");
             String localFile = null;
             try {
                 localFile = downloadFile(fileDetails.getChannelCanName(), fileDetails);
             } catch (NoChannelException e) {
-                /**
-                 * recoverable error. not deleting message
-                 */
                 logger.error("channel " + fileDetails.getChannelCanName() + " doesn't exist");
-                sqs.deleteMessage(url, msg.getReceiptHandle());
-                continue;
+                throw e;
             } catch (FileNotFoundException e) {
-                /**
-                 * irrecoverable error. ignoring as the file has already been deleted
-                 */
-                sqs.deleteMessage(url, msg.getReceiptHandle());
-                continue;
+                logger.error("file " + fileDetails.getFileName() + " has been removed ", e);
+                throw e;
             } catch (IOException e) {
-                /**
-                 * recoverable error
-                 */
                 logger.error("I/O exception while reading " + fileDetails.getFileId(), e);
-                sqs.deleteMessage(url, msg.getReceiptHandle());
-                continue;
-            } catch (Throwable t1) {
-                logger.error("", t1);
-                sqs.deleteMessage(url, msg.getReceiptHandle());
-                continue;
+                throw e;
             }
             try {
                 elasticService.upload(localFile, fileDetails);
             } catch (TikaException | SAXException e) {
-                /**
-                 * irrecoverable error
-                 */
                 logger.error("error parsing " + fileDetails.getFileName(), e);
-                sqs.deleteMessage(url, msg.getReceiptHandle());
+                throw e;
             } catch (IOException | NoChannelException | NoProjectException e) {
-                /**
-                 * recoverable error
-                 */
                 logger.error("error parsing " + fileDetails.getFileName(), e);
-                continue;
+                throw e;
             }
-            sqs.deleteMessage(url, msg.getReceiptHandle());
         }
+    }
+
+    private FileDetailsMessage parseMessage(Message msg) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        TypeReference<FileDetailsMessage> t = new TypeReference<FileDetailsMessage>() {};
+        FileDetailsMessage fileDetails = null;
+        try {
+            fileDetails = mapper.readValue(msg.getBody(), t);
+        } catch (JsonProcessingException e) {
+            logger.error("error parsing message from queue", e);
+            throw e;
+        }
+
+        if(!fileDetails.getType().equals("firstTimeRead")) {
+            String split[] = fileDetails.getChannelCanName().split("channel");
+            fileDetails.setChannelCanName(split[1]);
+            fileDetails.setFileId(split[0]);
+            fileDetails.setFileName(split[0]);
+        }
+        return fileDetails;
     }
 
     private String downloadFile(String channelCanName, FileDetailsMessage fileDetails) throws NoChannelException, IOException {
