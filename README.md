@@ -21,3 +21,13 @@ Typical flow would be this
 - create one more channels
 - add channels to project
 - perform search and relax!
+
+## Apis
+
+### Create Project
+Create a demo project names demoproject as below
+`
+curl --location 'https://host:port/v1/project' \
+--header 'Content-Type: application/json' \
+--data '{"canonicalName":"demoproject"}'
+`
