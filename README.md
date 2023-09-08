@@ -25,9 +25,31 @@ Typical flow would be this
 ## Apis
 
 ### Create Project
-Create a demo project names demoproject as below
+Create a demo project named demoproject as below
 ```
 curl --location 'https://host:port/v1/project' \
 --header 'Content-Type: application/json' \
 --data '{"canonicalName":"demoproject"}'
+```
+
+### Create Channel
+Create a demochannel named demochannel as below
+```
+curl --location 'https://host:port/v1/channel' \
+--header 'Content-Type: application/json' \
+--data '{
+    "canonicalName" : "demochannel",
+    "accessToken": "<oauth2_access_token>",
+    "refreshToken": "<oauth2_refresh_token>"
+}'
+```
+
+### Add channel to project
+Add demochannel to demoproject as below
+```
+curl --location 'https://host:port/v1/channel/demochannel/projects' \
+--header 'Content-Type: application/json' \
+--data '{
+    "projects": ["demoproject"]
+}'
 ```
