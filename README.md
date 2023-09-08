@@ -20,6 +20,7 @@ Typical flow would be this
 - create a Project
 - create one more channels
 - add channels to project
+- start channels so that data can be indexed
 - perform search and relax!
 
 ## Apis
@@ -52,4 +53,16 @@ curl --location 'https://host:port/v1/channel/demochannel/projects' \
 --data '{
     "projects": ["demoproject"]
 }'
+```
+
+### Start channel
+Start demochannel as below
+```
+curl --location --request POST 'https://host:port/v1/channel/demochannel'
+```
+
+### Search for queryString in project
+Search for queryString in demoproject as below
+```
+curl --location 'https://host:port/v1/search?q=queryString&project=demoproject'
 ```
