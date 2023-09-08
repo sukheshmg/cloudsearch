@@ -1,2 +1,12 @@
 # CloudSearch
 Platform to aggregate multiple cloud document stores and perform fast searches on them
+
+## Main Concepts
+
+### Project
+A Project is a collection of multiple cloud accounts, possibly owned by multiple people/entities.
+Projects help in organizing multiple accounts and perform search on them as a whole.
+Typical usage could be
+- A single user having multiple Google Drive accounts
+- A single user having Google Drive, DropBox or other OAuth2 Compatible doc storage accounts
+- An organization with multiple doc storage accounts
